@@ -1,5 +1,6 @@
 package com.simulator.main;
 
+import com.simulator.ui.IntroSplashScreen;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -16,10 +17,8 @@ public class MainApp extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // Load the FXML layout from the resources directory
         FXMLLoader loader = new FXMLLoader(
                 getClass().getResource("/com/simulator/ui/simulation.fxml"));
-
         Scene scene = new Scene(loader.load());
 
         Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
@@ -27,14 +26,15 @@ public class MainApp extends Application {
         double targetHeight = Math.min(900, visualBounds.getHeight() * 0.94);
 
         primaryStage.setTitle("Satellite Orbit Simulator");
-        primaryStage.setScene(scene);
         primaryStage.setResizable(true);
         primaryStage.setMinWidth(1220);
         primaryStage.setMinHeight(720);
         primaryStage.setWidth(targetWidth);
         primaryStage.setHeight(targetHeight);
         primaryStage.centerOnScreen();
-        primaryStage.show();
+
+        IntroSplashScreen splashScreen = new IntroSplashScreen();
+        splashScreen.play(primaryStage, scene, targetWidth, targetHeight);
     }
 
     /**
