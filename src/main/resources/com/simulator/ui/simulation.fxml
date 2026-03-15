@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Slider?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<!--
+    Main simulation window layout.
+
+    Structure
+    ─────────
+    ┌─────────────┬────────────────────────┬─────────────┐
+    │  Left panel │   Centre canvas (600²) │ Right panel │
+    │  (controls) │   orbit drawing area   │ (telemetry) │
+    └─────────────┴────────────────────────┴─────────────┘
+-->
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.simulator.controller.SimulationController"
+            style="-fx-background-color: #080818;">
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         LEFT PANEL – Simulation controls
+    ════════════════════════════════════════════════════════════════════════ -->
+    <left>
+        <VBox spacing="12"
+              style="-fx-background-color: #12122a; -fx-min-width: 195; -fx-max-width: 195;">
+            <padding>
+                <Insets top="18" right="14" bottom="18" left="14"/>
+            </padding>
+
+            <!-- Section header -->
+            <Label text="CONTROLS"
+                   style="-fx-font-size: 13px; -fx-font-weight: bold;
+                          -fx-text-fill: #8899ee;"/>
+
+            <Separator style="-fx-background-color: #334466;"/>
+
+            <!-- Start -->
+            <Button text="▶  Start Simulation"
+                    onAction="#handleStart"
+                    maxWidth="Infinity"
+                    style="-fx-background-color: #1e8a3c; -fx-text-fill: white;
+                           -fx-font-size: 12px; -fx-cursor: hand;
+                           -fx-background-radius: 4;"/>
+
+            <!-- Pause -->
+            <Button text="⏸  Pause Simulation"
+                    onAction="#handlePause"
+                    maxWidth="Infinity"
+                    style="-fx-background-color: #8a7a1e; -fx-text-fill: white;
+                           -fx-font-size: 12px; -fx-cursor: hand;
+                           -fx-background-radius: 4;"/>
+
+            <!-- Reset -->
+            <Button text="↺  Reset Simulation"
+                    onAction="#handleReset"
+                    maxWidth="Infinity"
+                    style="-fx-background-color: #8a1e1e; -fx-text-fill: white;
+                           -fx-font-size: 12px; -fx-cursor: hand;
+                           -fx-background-radius: 4;"/>
+
+            <Separator style="-fx-background-color: #334466;"/>
+
+            <!-- Altitude slider -->
+            <Label text="Satellite Altitude (km)"
+                   style="-fx-text-fill: #aabbdd; -fx-font-size: 11px;"/>
+            <Slider fx:id="altitudeSlider"/>
+
+            <Separator style="-fx-background-color: #334466;"/>
+
+            <!-- Speed slider -->
+            <Label text="Simulation Speed"
+                   style="-fx-text-fill: #aabbdd; -fx-font-size: 11px;"/>
+            <Slider fx:id="speedSlider"/>
+
+        </VBox>
+    </left>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         CENTRE – Orbit canvas
+    ════════════════════════════════════════════════════════════════════════ -->
+    <center>
+        <StackPane style="-fx-background-color: #080818;">
+            <!-- The SimulationController renders onto this canvas -->
+            <Canvas fx:id="orbitCanvas" width="600" height="600"/>
+        </StackPane>
+    </center>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         RIGHT PANEL – Telemetry display
+    ════════════════════════════════════════════════════════════════════════ -->
+    <right>
+        <VBox spacing="12"
+              style="-fx-background-color: #12122a; -fx-min-width: 195; -fx-max-width: 195;">
+            <padding>
+                <Insets top="18" right="14" bottom="18" left="14"/>
+            </padding>
+
+            <!-- Section header -->
+            <Label text="TELEMETRY"
+                   style="-fx-font-size: 13px; -fx-font-weight: bold;
+                          -fx-text-fill: #8899ee;"/>
+
+            <Separator style="-fx-background-color: #334466;"/>
+
+            <Label text="📡  Satellite Status"
+                   style="-fx-text-fill: #66cc88; -fx-font-weight: bold;
+                          -fx-font-size: 11px;"/>
+
+            <!-- Live data labels – updated every animation frame -->
+            <Label fx:id="altitudeLabel"
+                   text="Altitude:  — km"
+                   style="-fx-text-fill: #ccd4ff; -fx-font-size: 12px;
+                          -fx-font-family: monospace;"/>
+
+            <Label fx:id="velocityLabel"
+                   text="Velocity:  — km/s"
+                   style="-fx-text-fill: #ccd4ff; -fx-font-size: 12px;
+                          -fx-font-family: monospace;"/>
+
+            <Label fx:id="periodLabel"
+                   text="Period:    — min"
+                   style="-fx-text-fill: #ccd4ff; -fx-font-size: 12px;
+                          -fx-font-family: monospace;"/>
+
+            <Separator style="-fx-background-color: #334466;"/>
+
+            <Label text="⚙  Physics"
+                   style="-fx-text-fill: #66cc88; -fx-font-weight: bold;
+                          -fx-font-size: 11px;"/>
+
+            <Label text="v = √(GM / r)"
+                   style="-fx-text-fill: #8899bb; -fx-font-size: 11px;
+                          -fx-font-family: monospace;"/>
+
+            <Label text="T = 2π√(r³ / GM)"
+                   style="-fx-text-fill: #8899bb; -fx-font-size: 11px;
+                          -fx-font-family: monospace;"/>
+
+        </VBox>
+    </right>
+
+</BorderPane>
