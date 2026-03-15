@@ -10,6 +10,12 @@ import java.time.LocalDateTime;
  */
 public class TelemetryData {
 
+    /** Satellite identifier to support per-satellite telemetry panels. */
+    private final String satelliteId;
+
+    /** Human-readable satellite name. */
+    private final String satelliteName;
+
     /** Altitude above Earth's surface in kilometres. */
     private final double altitude;
 
@@ -18,6 +24,18 @@ public class TelemetryData {
 
     /** Orbital period in seconds. */
     private final double orbitalPeriod;
+
+    /** Configured launch speed for this satellite (km/s). */
+    private final double initialSpeed;
+
+    /** Configured orbital inclination (degrees). */
+    private final double inclination;
+
+    /** Orbital specific mechanical energy (J/kg). */
+    private final double specificEnergy;
+
+    /** Satellite mass (kg). */
+    private final double massKg;
 
     /** Wall-clock time when this snapshot was taken. */
     private final LocalDateTime timestamp;
@@ -29,11 +47,47 @@ public class TelemetryData {
      * @param velocity      velocity in km/s
      * @param orbitalPeriod orbital period in seconds
      */
-    public TelemetryData(double altitude, double velocity, double orbitalPeriod) {
+    public TelemetryData(String satelliteId,
+                         String satelliteName,
+                         double altitude,
+                         double velocity,
+                         double orbitalPeriod,
+                         double initialSpeed,
+                         double inclination,
+                         double specificEnergy,
+                         double massKg) {
+        this.satelliteId = satelliteId;
+        this.satelliteName = satelliteName;
         this.altitude = altitude;
         this.velocity = velocity;
         this.orbitalPeriod = orbitalPeriod;
+        this.initialSpeed = initialSpeed;
+        this.inclination = inclination;
+        this.specificEnergy = specificEnergy;
+        this.massKg = massKg;
         this.timestamp = LocalDateTime.now();
+    }
+
+    public static TelemetryData fromSatellite(Satellite satellite) {
+        return new TelemetryData(
+                satellite.getSatelliteId(),
+                satellite.getDisplayName(),
+                satellite.getAltitude(),
+                satellite.getVelocity(),
+                satellite.getOrbitalPeriod(),
+                satellite.getInitialSpeedKmS(),
+                satellite.getOrbit().getInclinationDeg(),
+                satellite.getSpecificEnergy(),
+                satellite.getMassKg()
+        );
+    }
+
+    public String getSatelliteId() {
+        return satelliteId;
+    }
+
+    public String getSatelliteName() {
+        return satelliteName;
     }
 
     public double getAltitude() {
@@ -46,6 +100,22 @@ public class TelemetryData {
 
     public double getOrbitalPeriod() {
         return orbitalPeriod;
+    }
+
+    public double getInitialSpeed() {
+        return initialSpeed;
+    }
+
+    public double getInclination() {
+        return inclination;
+    }
+
+    public double getSpecificEnergy() {
+        return specificEnergy;
+    }
+
+    public double getMassKg() {
+        return massKg;
     }
 
     public LocalDateTime getTimestamp() {

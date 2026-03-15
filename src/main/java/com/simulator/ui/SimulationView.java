@@ -1,6 +1,8 @@
 package com.simulator.ui;
 
+import com.simulator.model.Earth;
 import com.simulator.model.Satellite;
+import com.simulator.physics.Vector2D;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -8,6 +10,8 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Random;
 
 /**
@@ -31,17 +35,17 @@ public class SimulationView {
     // Constants
     // -------------------------------------------------------------------------
 
-    /** Fixed screen radius of the Earth regardless of actual scale (pixels). */
-    private static final double EARTH_SCREEN_RADIUS = 80.0;
+    /** Minimum rendered Earth radius for visual clarity (pixels). */
+    private static final double MIN_EARTH_SCREEN_RADIUS = 45.0;
 
-    /** Minimum gap between the Earth's edge and the orbit path (pixels). */
-    private static final double ORBIT_MIN_PADDING = 50.0;
-
-    /** Scale factor mapping real altitude (km) to extra screen pixels. */
-    private static final double ALTITUDE_SCALE = 0.075;
+    /** Margin used when fitting physical coordinates into the canvas (pixels). */
+    private static final double FIT_MARGIN = 26.0;
 
     /** Number of randomly placed background stars. */
     private static final int STAR_COUNT = 120;
+
+    /** Max number of points used for the trajectory trail. */
+    private static final int MAX_TRAIL_POINTS = 700;
 
     // -------------------------------------------------------------------------
     // State
@@ -56,6 +60,12 @@ public class SimulationView {
      */
     private double[] stars;
 
+    /** Earth model (physical radius/mass constants). */
+    private final Earth earth;
+
+    /** Ring buffer holding recent world positions in metres for the trail. */
+    private final Deque<Vector2D> trailPoints = new ArrayDeque<>();
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -66,9 +76,10 @@ public class SimulationView {
      * @param canvas    the JavaFX canvas to draw on
      * @param satellite the satellite whose position is rendered
      */
-    public SimulationView(Canvas canvas, Satellite satellite) {
+    public SimulationView(Canvas canvas, Satellite satellite, Earth earth) {
         this.canvas = canvas;
         this.satellite = satellite;
+        this.earth = earth;
         precomputeStars(canvas.getWidth(), canvas.getHeight());
     }
 
@@ -86,34 +97,42 @@ public class SimulationView {
         double cx = width  / 2.0;
         double cy = height / 2.0;
 
-        double orbitRadius = computeScreenOrbitRadius();
+        Vector2D currentPosition = satellite.getPositionM();
+        appendTrailPoint(currentPosition);
 
-        // Update satellite's screen position for the new orbit radius
-        satellite.updatePosition(cx, cy, orbitRadius);
+        double earthRadiusM = earth.getRadius() * 1_000.0;
+        double maxRadiusM = earthRadiusM;
+        for (Vector2D trailPoint : trailPoints) {
+            maxRadiusM = Math.max(maxRadiusM, trailPoint.magnitude());
+        }
+        maxRadiusM = Math.max(maxRadiusM, currentPosition.magnitude());
+
+        double availableRadiusPx = Math.max(1.0, Math.min(width, height) / 2.0 - FIT_MARGIN);
+        double scale = availableRadiusPx / Math.max(maxRadiusM, 1.0);
+        double earthRadiusPx = Math.max(MIN_EARTH_SCREEN_RADIUS, earthRadiusM * scale);
+
+        double satX = cx + currentPosition.getX() * scale;
+        double satY = cy + currentPosition.getY() * scale;
+        satellite.setScreenPosition(satX, satY);
 
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
         // 1. Background
         drawBackground(gc, width, height);
 
-        // 2. Orbit path
-        drawOrbitPath(gc, cx, cy, orbitRadius);
+        // 2. Real trajectory trail
+        drawTrajectoryTrail(gc);
 
         // 3. Earth
-        drawEarth(gc, cx, cy);
+        drawEarth(gc, cx, cy, earthRadiusPx);
 
         // 4. Satellite
-        drawSatellite(gc, satellite.getX(), satellite.getY());
+        drawSatellite(gc, satX, satY);
     }
 
-    /**
-     * Computes the screen-space orbital radius for the satellite's current
-     * altitude using a schematic (non-linear) mapping.
-     *
-     * @return orbital radius in pixels
-     */
-    public double computeScreenOrbitRadius() {
-        return EARTH_SCREEN_RADIUS + ORBIT_MIN_PADDING + satellite.getAltitude() * ALTITUDE_SCALE;
+    /** Clears the orbital trail, useful after reset or orbit parameter changes. */
+    public void clearTrail() {
+        trailPoints.clear();
     }
 
     // -------------------------------------------------------------------------
@@ -134,20 +153,63 @@ public class SimulationView {
         }
     }
 
-    private void drawOrbitPath(GraphicsContext gc, double cx, double cy, double r) {
-        gc.setStroke(Color.web("#4488aa", 0.55));
-        gc.setLineWidth(1.2);
-        gc.setLineDashes(6, 5);
-        gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
-        gc.setLineDashes(); // reset dash
+    private void drawTrajectoryTrail(GraphicsContext gc) {
+        if (trailPoints.size() < 2) {
+            return;
+        }
+
+        double width  = canvas.getWidth();
+        double height = canvas.getHeight();
+        double cx = width  / 2.0;
+        double cy = height / 2.0;
+
+        double earthRadiusM = earth.getRadius() * 1_000.0;
+        double maxRadiusM = earthRadiusM;
+        for (Vector2D trailPoint : trailPoints) {
+            maxRadiusM = Math.max(maxRadiusM, trailPoint.magnitude());
+        }
+        double availableRadiusPx = Math.max(1.0, Math.min(width, height) / 2.0 - FIT_MARGIN);
+        double scale = availableRadiusPx / Math.max(maxRadiusM, 1.0);
+
+        Vector2D[] points = trailPoints.toArray(new Vector2D[0]);
+        for (int i = 1; i < points.length; i++) {
+            double alpha = (double) i / points.length;
+            gc.setStroke(Color.web("#66ddff", 0.10 + alpha * 0.55));
+            gc.setLineWidth(1.0 + alpha * 1.1);
+            double x1 = cx + points[i - 1].getX() * scale;
+            double y1 = cy + points[i - 1].getY() * scale;
+            double x2 = cx + points[i].getX() * scale;
+            double y2 = cy + points[i].getY() * scale;
+            gc.strokeLine(x1, y1, x2, y2);
+        }
     }
 
-    private void drawEarth(GraphicsContext gc, double cx, double cy) {
-        double r = EARTH_SCREEN_RADIUS;
+    private void drawEarth(GraphicsContext gc, double cx, double cy, double r) {
 
-        // Atmosphere halo (faint blue ring)
-        gc.setFill(Color.web("#3366ff", 0.08));
-        gc.fillOval(cx - r - 10, cy - r - 10, (r + 10) * 2, (r + 10) * 2);
+        // Multi-layer atmosphere glow.
+        RadialGradient outerGlow = new RadialGradient(
+                0, 0,
+                cx, cy,
+                r * 1.9,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.web("#66b3ff", 0.14)),
+                new Stop(0.50, Color.web("#3d8dff", 0.09)),
+                new Stop(1.00, Color.web("#1847c8", 0.00))
+        );
+        gc.setFill(outerGlow);
+        gc.fillOval(cx - r * 1.9, cy - r * 1.9, r * 3.8, r * 3.8);
+
+        RadialGradient innerGlow = new RadialGradient(
+                0, 0,
+                cx, cy,
+                r * 1.25,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#9bc8ff", 0.20)),
+                new Stop(0.8, Color.web("#3f7cff", 0.08)),
+                new Stop(1.0, Color.web("#2050d8", 0.0))
+        );
+        gc.setFill(innerGlow);
+        gc.fillOval(cx - r * 1.25, cy - r * 1.25, r * 2.5, r * 2.5);
 
         // Earth body with a radial gradient to simulate lighting
         RadialGradient earthGrad = new RadialGradient(
@@ -195,6 +257,22 @@ public class SimulationView {
             stars[i * 3]     = rng.nextDouble() * width;
             stars[i * 3 + 1] = rng.nextDouble() * height;
             stars[i * 3 + 2] = rng.nextDouble() * 2.0 + 0.5; // size 0.5–2.5 px
+        }
+    }
+
+    private void appendTrailPoint(Vector2D pointM) {
+        if (!trailPoints.isEmpty()) {
+            Vector2D last = trailPoints.peekLast();
+            double dx = pointM.getX() - last.getX();
+            double dy = pointM.getY() - last.getY();
+            if ((dx * dx + dy * dy) < 2_500_000.0) {
+                return;
+            }
+        }
+
+        trailPoints.addLast(pointM);
+        while (trailPoints.size() > MAX_TRAIL_POINTS) {
+            trailPoints.removeFirst();
         }
     }
 }

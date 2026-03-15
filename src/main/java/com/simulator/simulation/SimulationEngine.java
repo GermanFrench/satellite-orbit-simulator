@@ -1,8 +1,17 @@
 package com.simulator.simulation;
 
 import com.simulator.model.Earth;
+import com.simulator.model.Orbit;
 import com.simulator.model.Satellite;
+import com.simulator.model.TransferTelemetry;
+import com.simulator.physics.OrbitalTransfer;
+import com.simulator.physics.OrbitIntegrator;
+import com.simulator.physics.OrbitalMechanics;
+import com.simulator.physics.PhysicsEngine;
+import com.simulator.physics.Vector2D;
 import javafx.animation.AnimationTimer;
+
+import java.util.List;
 
 /**
  * Drives the real-time simulation loop.
@@ -17,9 +26,19 @@ import javafx.animation.AnimationTimer;
  */
 public class SimulationEngine {
 
-    private final Satellite satellite;
+    /** Time acceleration factor applied on top of the UI speed slider value. */
+    private static final double TIME_ACCELERATION = 180.0;
+
+    /** Maximum internal integration step in simulated seconds. */
+    private static final double MAX_INTEGRATION_STEP = 1.2;
+
     private final Earth earth;
-    private final OrbitCalculator calculator;
+    private final SatelliteManager satelliteManager;
+    private final PhysicsEngine physicsEngine;
+    private final OrbitalMechanics orbitalMechanics;
+    private final OrbitIntegrator orbitIntegrator;
+    private final LaunchSimulationEngine launchSimulationEngine;
+    private final TransferSimulationController transferSimulationController;
 
     /** JavaFX animation loop — recreated on each start to reset timing. */
     private AnimationTimer animationTimer;
@@ -49,11 +68,14 @@ public class SimulationEngine {
      * @param satellite the satellite to simulate
      * @param earth     the Earth model
      */
-    public SimulationEngine(Satellite satellite, Earth earth) {
-        this.satellite = satellite;
+    public SimulationEngine(Earth earth, SatelliteManager satelliteManager) {
         this.earth = earth;
-        this.calculator = new OrbitCalculator(earth);
-        refreshSatelliteProperties();
+        this.satelliteManager = satelliteManager;
+        this.physicsEngine = new PhysicsEngine(earth);
+        this.orbitalMechanics = new OrbitalMechanics();
+        this.orbitIntegrator = new OrbitIntegrator(physicsEngine);
+        this.launchSimulationEngine = new LaunchSimulationEngine(earth);
+        this.transferSimulationController = new TransferSimulationController(earth);
     }
 
     // -------------------------------------------------------------------------
@@ -96,9 +118,11 @@ public class SimulationEngine {
      */
     public void resetSimulation() {
         pauseSimulation();
-        satellite.setAngle(0.0);
+        launchSimulationEngine.abortLaunch();
+        for (Satellite satellite : satelliteManager.getSatellites()) {
+            initializePhysicalState(satellite);
+        }
         lastUpdate = 0;
-        refreshSatelliteProperties();
         if (onUpdate != null) {
             onUpdate.run();
         }
@@ -127,16 +151,23 @@ public class SimulationEngine {
         double deltaTime = (now - lastUpdate) / 1_000_000_000.0; // ns → s
         lastUpdate = now;
 
-        // Orbital radius in metres
-        double radiusM = (earth.getRadius() + satellite.getAltitude()) * 1_000.0;
+        double simulatedDt = deltaTime * simulationSpeed * TIME_ACCELERATION;
+        int steps = Math.max(1, (int) Math.ceil(simulatedDt / MAX_INTEGRATION_STEP));
+        double dtStep = simulatedDt / steps;
 
-        // Real-time angular velocity ω = v / r  (rad/s)
-        double v = calculator.calculateOrbitalVelocity(radiusM);
-        double omega = v / radiusM;
+        launchSimulationEngine.update(simulatedDt);
 
-        // Advance angle by ω × Δt × speed multiplier
-        double newAngle = satellite.getAngle() + omega * deltaTime * simulationSpeed * 100.0;
-        satellite.setAngle(newAngle % (2.0 * Math.PI));
+        for (Satellite satellite : satelliteManager.getSatellites()) {
+            if (launchSimulationEngine.isSatelliteUnderLaunch(satellite)) {
+                refreshDerivedState(satellite);
+                continue;
+            }
+            for (int i = 0; i < steps; i++) {
+                orbitIntegrator.step(satellite, dtStep);
+            }
+            transferSimulationController.updateTransfer(satellite, simulatedDt);
+            refreshDerivedState(satellite);
+        }
 
         if (onUpdate != null) {
             onUpdate.run();
@@ -151,12 +182,54 @@ public class SimulationEngine {
      * Recalculates the satellite's velocity and period for the current altitude.
      * Called whenever the altitude changes.
      */
-    private void refreshSatelliteProperties() {
-        double radiusM = (earth.getRadius() + satellite.getAltitude()) * 1_000.0;
-        double velocityMs = calculator.calculateOrbitalVelocity(radiusM);
-        double periodS = calculator.calculateOrbitalPeriod(radiusM);
-        satellite.setVelocity(velocityMs / 1_000.0); // m/s → km/s
-        satellite.setOrbitalPeriod(periodS);
+    private void initializePhysicalState(Satellite satellite) {
+        Orbit orbit = satellite.getOrbit();
+        double eccentricity = orbit.getEccentricity();
+
+        double periapsisM = (earth.getRadius() + orbit.getAltitudeKm()) * 1_000.0;
+        double semiMajorAxisM = orbitalMechanics.semiMajorAxisFromPeriapsis(periapsisM, eccentricity);
+        double recommendedSpeedMs = orbitalMechanics.speedFromVisViva(earth, periapsisM, semiMajorAxisM);
+        if (satellite.getInitialSpeedKmS() <= 0.0) {
+            satellite.setInitialSpeedKmS(recommendedSpeedMs / 1_000.0);
+        }
+
+        double theta = Math.toRadians(orbit.getInclinationDeg());
+        Vector2D position = new Vector2D(periapsisM * Math.cos(theta), periapsisM * Math.sin(theta));
+        Vector2D tangent = new Vector2D(-Math.sin(theta), Math.cos(theta));
+        Vector2D velocity = tangent.multiply(satellite.getInitialSpeedKmS() * 1_000.0);
+
+        satellite.setPositionM(position);
+        satellite.setVelocityVectorMs(velocity);
+        satellite.setAccelerationVectorMs2(
+                physicsEngine.calculateAcceleration(satellite.getPositionM(), satellite.getMassKg())
+        );
+        refreshDerivedState(satellite);
+    }
+
+    private void refreshDerivedState(Satellite satellite) {
+        Vector2D position = satellite.getPositionM();
+        Vector2D velocity = satellite.getVelocityVectorMs();
+
+        double radiusM = position.magnitude();
+        double speedMs = velocity.magnitude();
+        double altitudeKm = radiusM / 1_000.0 - earth.getRadius();
+
+        satellite.setAltitude(Math.max(0.0, altitudeKm));
+        satellite.setVelocity(speedMs / 1_000.0);
+        satellite.setAngle(normalizeAngle(Math.atan2(position.getY(), position.getX())));
+
+        double specificEnergy = 0.5 * speedMs * speedMs - physicsEngine.getMu() / radiusM;
+        satellite.setSpecificEnergy(specificEnergy);
+
+        satellite.setOrbitalPeriod(orbitalMechanics.estimatePeriodFromEnergy(earth, specificEnergy));
+
+        // Stop below surface to avoid unstable exploding states.
+        if (altitudeKm <= 0.0) {
+            Vector2D surfacePosition = position.normalized().multiply(earth.getRadius() * 1_000.0);
+            satellite.setPositionM(surfacePosition);
+            satellite.setVelocityVectorMs(Vector2D.ZERO);
+            satellite.setAccelerationVectorMs2(Vector2D.ZERO);
+        }
     }
 
     /**
@@ -165,9 +238,92 @@ public class SimulationEngine {
      *
      * @param altitude new altitude above Earth's surface in kilometres
      */
-    public void setAltitude(double altitude) {
+    public void setAltitude(Satellite satellite, double altitude) {
+        satellite.getOrbit().setAltitudeKm(altitude);
         satellite.setAltitude(altitude);
-        refreshSatelliteProperties();
+        initializePhysicalState(satellite);
+    }
+
+    /**
+     * Updates launch speed and resets orbit state so the new trajectory starts
+     * immediately from the same launch point.
+     *
+     * @param initialSpeedKmS launch speed in km/s
+     */
+    public void setInitialSpeed(Satellite satellite, double initialSpeedKmS) {
+        satellite.setInitialSpeedKmS(initialSpeedKmS);
+        initializePhysicalState(satellite);
+    }
+
+    public void setInclination(Satellite satellite, double inclinationDeg) {
+        satellite.getOrbit().setInclinationDeg(inclinationDeg);
+        initializePhysicalState(satellite);
+    }
+
+    public void setMass(Satellite satellite, double massKg) {
+        satellite.setMassKg(massKg);
+        initializePhysicalState(satellite);
+    }
+
+    public void setOrbitType(Satellite satellite, Orbit.OrbitType type) {
+        satellite.getOrbit().setType(type);
+        if (type != Orbit.OrbitType.CUSTOM) {
+            satellite.getOrbit().setAltitudeKm(orbitalMechanics.getPresetAltitudeKm(type));
+            satellite.setInitialSpeedKmS(orbitalMechanics.getTypicalVelocityKmS(type));
+        }
+        initializePhysicalState(satellite);
+    }
+
+    public void addSatellite(Satellite satellite) {
+        satelliteManager.addSatellite(satellite);
+        initializePhysicalState(satellite);
+        if (onUpdate != null) {
+            onUpdate.run();
+        }
+    }
+
+    public void removeSatellite(Satellite satellite) {
+        satelliteManager.removeSatellite(satellite);
+        if (onUpdate != null) {
+            onUpdate.run();
+        }
+    }
+
+    public List<Satellite> getSatellites() {
+        return satelliteManager.getSatellites();
+    }
+
+    public Satellite getSelectedSatellite() {
+        return satelliteManager.getSelectedSatellite();
+    }
+
+    public void setSelectedSatellite(Satellite satellite) {
+        satelliteManager.setSelectedSatellite(satellite);
+    }
+
+    public LaunchSimulationEngine getLaunchSimulationEngine() {
+        return launchSimulationEngine;
+    }
+
+    public OrbitalTransfer executeHohmannTransfer(Satellite satellite,
+                                                  Orbit.OrbitType current,
+                                                  Orbit.OrbitType target) {
+        if (launchSimulationEngine.isSatelliteUnderLaunch(satellite)) {
+            return null;
+        }
+        return transferSimulationController.executeTransfer(satellite, current, target);
+    }
+
+    public boolean cancelHohmannTransfer(Satellite satellite) {
+        return transferSimulationController.cancelTransfer(satellite);
+    }
+
+    public OrbitalTransfer getActiveTransfer(Satellite satellite) {
+        return transferSimulationController.getTransfer(satellite);
+    }
+
+    public TransferTelemetry getTransferTelemetry(Satellite satellite) {
+        return transferSimulationController.getTelemetry(satellite);
     }
 
     // -------------------------------------------------------------------------
@@ -199,8 +355,9 @@ public class SimulationEngine {
         return running;
     }
 
-    /** @return the {@link OrbitCalculator} used by this engine */
-    public OrbitCalculator getCalculator() {
-        return calculator;
+    private double normalizeAngle(double angleRad) {
+        double twoPi = 2.0 * Math.PI;
+        double value = angleRad % twoPi;
+        return (value < 0.0) ? value + twoPi : value;
     }
 }
