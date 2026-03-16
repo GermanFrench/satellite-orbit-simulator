@@ -1,5 +1,8 @@
 # Satellite Orbit Simulator
 
+[![CI](https://github.com/GermanFrench/satellite-orbit-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/GermanFrench/satellite-orbit-simulator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Aplicacion de escritorio en JavaFX para simulacion orbital educativa y de ingenieria, con soporte para:
 - dinamica multi-satelite,
 - lanzamiento de cohetes,
@@ -234,16 +237,20 @@ Al seleccionar `LEO/MEO/GEO`, la UI ajusta automaticamente altitud y velocidad i
 
 ### Ejecutar la aplicacion
 
-```powershell
-Set-Location "C:\Users\germa\OneDrive\Desktop\PROYECTOS\satellite-orbit-simulator"
+```bash
 mvn clean javafx:run
 ```
 
 ### Compilar y empaquetar
 
-```powershell
-Set-Location "C:\Users\germa\OneDrive\Desktop\PROYECTOS\satellite-orbit-simulator"
+```bash
 mvn clean package
+```
+
+### Ejecutar los tests
+
+```bash
+mvn test
 ```
 
 ---
@@ -292,8 +299,7 @@ mvn clean package
 
 ## 13. Validacion recomendada
 
-```powershell
-Set-Location "C:\Users\germa\OneDrive\Desktop\PROYECTOS\satellite-orbit-simulator"
+```bash
 mvn -q -DskipTests package
 ```
 
@@ -301,5 +307,6 @@ mvn -q -DskipTests package
 
 ## 14. Licencia
 
-Proyecto orientado a fines educativos y portfolio tecnico.
+Este proyecto se distribuye bajo los terminos de la licencia [MIT](LICENSE).
+Es libre para uso educativo, portfolio tecnico y modificacion personal.
 
