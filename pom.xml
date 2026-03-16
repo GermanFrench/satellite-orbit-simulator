@@ -57,6 +57,21 @@
                 </configuration>
             </plugin>
 
+            <!-- Produce an executable JAR with the launcher in MANIFEST.MF -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>false</addClasspath>
+                            <mainClass>${mainClass}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
             <!-- Run the application: mvn clean javafx:run -->
             <plugin>
                 <groupId>org.openjfx</groupId>
@@ -68,4 +83,37 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Windows Packaging Profile
+         Activate with:  mvn clean package -Ppackage-win
+         ═══════════════════════════════════════════════════════════ -->
+    <profiles>
+        <profile>
+            <id>package-win</id>
+            <build>
+                <plugins>
+                    <!-- Copy ALL runtime deps to target/libs so the build script can use them -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>copy-runtime-deps</id>
+                                <phase>package</phase>
+                                <goals><goal>copy-dependencies</goal></goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/libs</outputDirectory>
+                                    <includeScope>runtime</includeScope>
+                                    <stripVersion>false</stripVersion>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

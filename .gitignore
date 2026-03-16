@@ -34,6 +34,15 @@ nbbuild/
 nbdist/
 .nb-gradle/
 
+# ─── Packaging output ────────────────────────────────────────────────────────
+installer/
+javafx-jmods/
+javafx-jmods-download.zip
+javafx-jmods-tmp/
+
+# ─── Generated icons (keep generated files so IDE picks them up) ──────────────
+# src/main/resources/icons/     ← keep tracked
+
 # ─── OS files ────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
