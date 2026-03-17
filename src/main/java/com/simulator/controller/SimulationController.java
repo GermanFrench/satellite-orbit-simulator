@@ -1,8 +1,10 @@
 package com.simulator.controller;
 
 import com.simulator.model.Earth;
+import com.simulator.model.LaunchTelemetry;
 import com.simulator.model.Orbit;
 import com.simulator.model.Satellite;
+import com.simulator.model.TelemetryData;
 import com.simulator.model.TransferTelemetry;
 import com.simulator.physics.OrbitalTransfer;
 import com.simulator.simulation.SimulationEngine;
@@ -231,8 +233,12 @@ public class SimulationController implements Initializable {
 
     @FXML
     private void handleCancelLaunch() {
+        Satellite selected = engine.getSelectedSatellite();
         boolean aborted = engine.getLaunchSimulationEngine().abortLaunch();
-        if (aborted) {
+        if (aborted && selected != null) {
+            // Restore the selected satellite to its configured orbital state.
+            engine.setOrbitType(selected, selected.getOrbit().getType());
+            renderer.clearTrailFor(selected.getSatelliteId());
             renderFrame();
             refreshTelemetry();
         }
@@ -475,19 +481,38 @@ public class SimulationController implements Initializable {
      */
     private void refreshTelemetry() {
         telemetryPanel.showSatellite(engine.getSelectedSatellite());
+        refreshLaunchTelemetry();
         refreshTransferTelemetry();
         refreshLaunchActionButtons();
         refreshActionStatusMessage();
     }
 
+    private void refreshLaunchTelemetry() {
+        LaunchTelemetry launchTelemetry = engine.getLaunchSimulationEngine().getTelemetry();
+        launchController.showTelemetry(launchTelemetry);
+    }
+
     private void refreshTransferTelemetry() {
-        TransferTelemetry telemetry = engine.getTransferTelemetry(engine.getSelectedSatellite());
+        Satellite selected = engine.getSelectedSatellite();
+        TransferTelemetry telemetry = engine.getTransferTelemetry(selected);
         transferInitialOrbitLabel.setText("Transfer from: " + telemetry.getInitialOrbit());
         transferTargetOrbitLabel.setText("Transfer to:   " + telemetry.getTargetOrbit());
         transferDeltaV1Label.setText(String.format("Delta-v1: %.3f km/s", telemetry.getDeltaV1KmS()));
         transferDeltaV2Label.setText(String.format("Delta-v2: %.3f km/s", telemetry.getDeltaV2KmS()));
-        transferTimeLabel.setText(String.format("Transfer time: %.1f min", telemetry.getTransferTimeMinutes()));
-        transferPhaseLabel.setText("Transfer phase: " + telemetry.getPhase());
+
+        OrbitalTransfer activeTransfer = engine.getActiveTransfer(selected);
+        if (activeTransfer != null) {
+            double elapsedMin = activeTransfer.getElapsedSeconds() / 60.0;
+            double totalMin = Math.max(telemetry.getTransferTimeMinutes(), 0.0001);
+            double progress = Math.min(100.0, (elapsedMin / totalMin) * 100.0);
+
+            transferTimeLabel.setText(String.format("Transfer time: %.1f / %.1f min", elapsedMin, totalMin));
+            transferPhaseLabel.setText(String.format("Transfer phase: %s (%.0f%%)", telemetry.getPhase(), progress));
+        } else {
+            transferTimeLabel.setText(String.format("Transfer time: %.1f min", telemetry.getTransferTimeMinutes()));
+            transferPhaseLabel.setText("Transfer phase: " + telemetry.getPhase());
+        }
+
         refreshTransferActionButtons();
     }
 

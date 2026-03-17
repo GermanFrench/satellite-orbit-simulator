@@ -38,7 +38,7 @@
                 <VBox spacing="10"
                       style="-fx-background-color: #12122a; -fx-min-width: 290; -fx-max-width: 290;">
                     <padding>
-                        <Insets top="18" right="14" bottom="18" left="14"/>
+                        <Insets top="18" right="14" bottom="18" left="24"/>
                     </padding>
 
             <!-- Section header -->

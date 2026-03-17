@@ -9,6 +9,17 @@ Aplicacion de escritorio en JavaFX para simulacion orbital educativa y de ingeni
 
 Este proyecto esta pensado para aprendizaje, demostraciones tecnicas y portfolio profesional.
 
+## Descarga rapida
+
+- Windows installer: `installer/dist/SatelliteOrbitSimulator.exe`
+- Version actual: `v1.0.0`
+- Runtime Java incluido: **no necesitas instalar Java manualmente**
+- SHA-256: `E973517C6541EEFC491AE20EF70FE9B9E34B80F315F950DF6AC3A8EDC7491A6A`
+
+### Resumen ejecutivo
+
+`Satellite Orbit Simulator` es un simulador educativo de mecanica orbital desarrollado en `Java 17 + JavaFX`, orientado a visualizacion interactiva, portfolio tecnico y demostraciones publicas. Incluye orbitas LEO/MEO/GEO, trails orbitales, lanzamiento de satelites, transferencia Hohmann y telemetria en tiempo real.
+
 ---
 
 ## 1. Objetivos del proyecto
@@ -302,4 +313,96 @@ mvn -q -DskipTests package
 ## 14. Licencia
 
 Proyecto orientado a fines educativos y portfolio tecnico.
+
+---
+
+## 15. Preparacion para lanzamiento publico (go-live)
+
+Para considerar la app lista para publico masivo, usa este criterio:
+
+- Sin errores de compilacion (`mvn clean test package`).
+- Flujos criticos validados manualmente:
+  - agregar satelite,
+  - iniciar/pausar/reset,
+  - lanzamiento y cancelacion,
+  - transferencia Hohmann y cancelacion.
+- Instalador `.exe` generado y probado en una PC limpia.
+- Documentacion de uso y troubleshooting disponible.
+
+### Checklist de release
+
+- [ ] Version actualizada en `pom.xml`.
+- [ ] `mvn clean test` en verde.
+- [ ] `mvn clean package -Ppackage-win` en verde.
+- [ ] `installer/build-win.ps1` genera `.exe`.
+- [ ] `installer/smoke-test.ps1` genera hash SHA-256.
+- [ ] Prueba de instalacion/desinstalacion completada.
+- [ ] Telemetria visible y sin labels rotos en resoluciones comunes.
+
+---
+
+## 16. Empaquetado Windows (.exe) con runtime embebido
+
+Se incluye automatizacion en `installer/` para empaquetar con `jpackage`.
+
+### Build automatizado
+
+```powershell
+Set-Location "C:\Users\germa\OneDrive\Desktop\PROYECTOS\satellite-orbit-simulator"
+.\installer\build-win.ps1 -Version "1.0.0"
+```
+
+### Validacion rapida del artefacto
+
+```powershell
+Set-Location "C:\Users\germa\OneDrive\Desktop\PROYECTOS\satellite-orbit-simulator"
+.\installer\smoke-test.ps1
+```
+
+### Resultado
+
+- Instalador en `installer/dist/`.
+- Runtime Java incluido (usuarios finales no necesitan instalar Java).
+- Icono de app desde `src/main/resources/icons/app-icon.ico`.
+
+---
+
+## 17. Operacion y soporte tecnico
+
+### Problemas comunes
+
+1. **No aparece jpackage**
+   - Verifica JDK 17+ y `JAVA_HOME`.
+
+2. **La UI queda fuera de pantalla**
+   - La app usa `Screen.getPrimary().getVisualBounds()` para respetar barra de tareas.
+   - Si usas varios monitores con escalado distinto, valida en cada escenario.
+
+3. **Cancel launch deja estado visual inconsistente**
+   - Al cancelar, el satelite vuelve a su estado orbital configurado y se limpia su trail.
+
+### Recomendacion de distribucion
+
+- Publicar cada release con:
+  - `SatelliteOrbitSimulator*.exe`,
+  - hash SHA-256,
+  - notas de version,
+  - capturas de pantalla de features clave.
+
+---
+
+## 18. Kit de lanzamiento publico
+
+Documentacion lista para publicar y presentar la app:
+
+- `docs/RELEASE_NOTES_v1.0.0.md`
+- `docs/QA_CHECKLIST_v1.0.0.md`
+- `docs/DEMO_SCRIPT_3_MIN.md`
+- `docs/GITHUB_RELEASE_TEMPLATE_v1.0.0.md`
+- `docs/PUBLICATION_COPY.md`
+
+Artefacto de Windows generado y validado:
+
+- `installer/dist/SatelliteOrbitSimulator.exe`
+- SHA-256: `E973517C6541EEFC491AE20EF70FE9B9E34B80F315F950DF6AC3A8EDC7491A6A`
 
