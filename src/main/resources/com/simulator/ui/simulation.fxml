@@ -57,6 +57,14 @@
                            -fx-font-size: 12px; -fx-cursor: hand;
                            -fx-background-radius: 4;"/>
 
+            <Button text="− Remove Selected"
+                    fx:id="removeSatelliteButton"
+                    onAction="#handleRemoveSatellite"
+                    maxWidth="Infinity"
+                    style="-fx-background-color: #7a2f8f; -fx-text-fill: white;
+                           -fx-font-size: 12px; -fx-cursor: hand;
+                           -fx-background-radius: 4;"/>
+
             <Separator style="-fx-background-color: #334466;"/>
 
             <Label text="Orbit Type"

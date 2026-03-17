@@ -62,11 +62,10 @@ public class SimulationEngine {
     private Runnable onUpdate;
 
     /**
-     * Creates a simulation engine for the given satellite and Earth model.
-     * Orbital velocity and period are calculated immediately.
+     * Creates a simulation engine for Earth and the shared satellite manager.
      *
-     * @param satellite the satellite to simulate
-     * @param earth     the Earth model
+     * @param earth            the Earth model
+     * @param satelliteManager manager for active satellites and selection
      */
     public SimulationEngine(Earth earth, SatelliteManager satelliteManager) {
         this.earth = earth;
@@ -283,6 +282,8 @@ public class SimulationEngine {
     }
 
     public void removeSatellite(Satellite satellite) {
+        launchSimulationEngine.abortLaunchForSatellite(satellite);
+        transferSimulationController.clearSatelliteState(satellite);
         satelliteManager.removeSatellite(satellite);
         if (onUpdate != null) {
             onUpdate.run();

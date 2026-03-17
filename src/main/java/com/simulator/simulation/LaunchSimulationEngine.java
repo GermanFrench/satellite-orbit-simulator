@@ -205,6 +205,19 @@ public class LaunchSimulationEngine {
         launchSite = null;
         return true;
     }
+
+    /**
+     * Aborts launch only if the given satellite is currently under launch.
+     *
+     * @param satellite satellite that may be attached to the active rocket
+     * @return {@code true} if the active launch was aborted
+     */
+    public boolean abortLaunchForSatellite(Satellite satellite) {
+        if (!isSatelliteUnderLaunch(satellite)) {
+            return false;
+        }
+        return abortLaunch();
+    }
 }
 
 

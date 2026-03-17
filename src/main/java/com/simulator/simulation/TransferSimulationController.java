@@ -129,6 +129,17 @@ public class TransferSimulationController {
         return true;
     }
 
+    /** Removes all tracked transfer state for a satellite that was deleted. */
+    public void clearSatelliteState(Satellite satellite) {
+        if (satellite == null) {
+            return;
+        }
+        String satelliteId = satellite.getSatelliteId();
+        activeTransfers.remove(satelliteId);
+        previousRadialVelocityBySatellite.remove(satelliteId);
+        lastTelemetryBySatellite.remove(satelliteId);
+    }
+
     private void applyFirstBurn(Satellite satellite, OrbitalTransfer transfer) {
         Vector2D tangent = getTangentialDirection(satellite.getPositionM(), satellite.getVelocityVectorMs());
         double newSpeed = satellite.getVelocityVectorMs().magnitude() + transfer.getDeltaV1Ms();

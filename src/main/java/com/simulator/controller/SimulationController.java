@@ -22,8 +22,11 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 
 import java.net.URL;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
@@ -74,6 +77,7 @@ public class SimulationController implements Initializable {
 
     /** List of active satellites. */
     @FXML private ListView<Satellite> satelliteListView;
+    @FXML private Button removeSatelliteButton;
 
     /** Launch action buttons. */
     @FXML private Button launchSatelliteButton;
@@ -215,6 +219,41 @@ public class SimulationController implements Initializable {
     @FXML
     private void handleAddSatellite() {
         addSatellite();
+    }
+
+    @FXML
+    private void handleRemoveSatellite() {
+        Satellite selected = engine.getSelectedSatellite();
+        if (selected == null) {
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Remove Satellite");
+        confirm.setHeaderText("Delete selected satellite?");
+        confirm.setContentText("This will remove " + selected.getDisplayName() + " and clear its trail/active actions.");
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) {
+            return;
+        }
+
+        renderer.clearTrailFor(selected.getSatelliteId());
+        engine.removeSatellite(selected);
+
+        satelliteItems.setAll(engine.getSatellites());
+        Satellite fallback = engine.getSelectedSatellite();
+        if (fallback != null) {
+            satelliteListView.getSelectionModel().select(fallback);
+            syncControlsFromSelection(fallback);
+        } else {
+            satelliteListView.getSelectionModel().clearSelection();
+        }
+
+        refreshTransferActionButtons();
+        refreshLaunchActionButtons();
+        refreshActionStatusMessage();
+        refreshTelemetry();
+        renderFrame();
     }
 
     @FXML
@@ -540,6 +579,7 @@ public class SimulationController implements Initializable {
         boolean launchActive = engine.getLaunchSimulationEngine().isActive();
         boolean hasActiveTransfer = hasSelected && engine.getActiveTransfer(selected) != null;
 
+        removeSatelliteButton.setDisable(!hasSelected);
         launchSatelliteButton.setDisable(!hasSelected || launchActive || hasActiveTransfer);
         cancelLaunchButton.setDisable(!launchActive);
     }
