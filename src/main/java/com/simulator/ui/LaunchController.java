@@ -2,6 +2,7 @@ package com.simulator.ui;
 
 import com.simulator.model.LaunchSite;
 import com.simulator.model.LaunchTelemetry;
+import com.simulator.model.Orbit;
 import com.simulator.model.Satellite;
 import com.simulator.simulation.LaunchSimulationEngine;
 import javafx.scene.control.Label;
@@ -31,12 +32,23 @@ public class LaunchController {
         this.launchThrustLabel = launchThrustLabel;
     }
 
-    public boolean launchSelectedSatellite(Satellite satellite) {
-        boolean started = launchEngine.startLaunch(satellite, defaultSite, 180.0, 7.60);
-        if (!started) {
-            launchStatusLabel.setText("Launch: busy or no satellite");
+    /**
+     * Launches a brand-new satellite from Earth's surface.
+     * The satellite does NOT exist in the simulation before launch.
+     * After reaching orbit the {@code onDeploy} callback fires and the caller
+     * is responsible for adding the satellite to the simulation.
+     *
+     * @param name    display name for the new satellite
+     * @param massKg  satellite mass in kg
+     * @param orbit   target orbit configuration
+     * @return the satellite being launched, or {@code null} if busy
+     */
+    public Satellite launchNewSatellite(String name, double massKg, Orbit orbit) {
+        Satellite launched = launchEngine.startNewLaunch(name, massKg, orbit, defaultSite);
+        if (launched == null) {
+            launchStatusLabel.setText("Launch: busy");
         }
-        return started;
+        return launched;
     }
 
     public void showTelemetry(LaunchTelemetry telemetry) {

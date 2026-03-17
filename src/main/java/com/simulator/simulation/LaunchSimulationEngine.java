@@ -39,6 +39,41 @@ public class LaunchSimulationEngine {
         this.thrustModel = new ThrustModel();
     }
 
+    /**
+     * Launches a brand-new satellite without requiring a pre-existing one.
+     * The satellite is created internally, animated as rocket ascent, and
+     * delivered via the {@code onDeploy} callback after reaching orbit.
+     *
+     * @param name          display name for the new satellite
+     * @param massKg        satellite mass in kg
+     * @param orbit         target orbit configuration
+     * @param site          launch site
+     * @return the satellite being launched, or {@code null} if a launch is already active
+     */
+    public Satellite startNewLaunch(String name, double massKg,
+                                    com.simulator.model.Orbit orbit,
+                                    LaunchSite site) {
+        if (isActive()) {
+            return null;
+        }
+        double altKm = orbit.getAltitudeKm();
+        double velKmS;
+        if (orbit.getType() != com.simulator.model.Orbit.OrbitType.CUSTOM
+                && Double.isFinite(orbit.getType().getTypicalVelocityKmS())) {
+            velKmS = orbit.getType().getTypicalVelocityKmS();
+        } else {
+            // Calculate circular orbital velocity: v = sqrt(GM / r)
+            double GM = 3.986004418e14; // m³/s²
+            double rM = (earth.getRadius() + altKm) * 1_000.0;
+            velKmS = Math.sqrt(GM / rM) / 1_000.0;
+        }
+        com.simulator.model.Orbit launchOrbit = new com.simulator.model.Orbit(
+                orbit.getType(), altKm, 0.0, orbit.getInclinationDeg());
+        Satellite newSatellite = new Satellite(name, massKg, launchOrbit, velKmS);
+        boolean started = startLaunch(newSatellite, site, altKm, velKmS);
+        return started ? newSatellite : null;
+    }
+
     public boolean startLaunch(Satellite satellite,
                                LaunchSite site,
                                double targetAltitudeKm,

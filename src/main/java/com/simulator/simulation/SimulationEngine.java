@@ -281,6 +281,22 @@ public class SimulationEngine {
         }
     }
 
+    /**
+     * Adds a satellite that has already been physically positioned and given a
+     * velocity by the launch engine.  Unlike {@link #addSatellite}, this method
+     * does <em>not</em> reset position/velocity — it only refreshes the derived
+     * display fields (altitude, speed, period, energy).
+     *
+     * @param satellite satellite delivered by the rocket's deploy callback
+     */
+    public void addDeployedSatellite(Satellite satellite) {
+        satelliteManager.addSatellite(satellite);
+        refreshDerivedState(satellite);
+        if (onUpdate != null) {
+            onUpdate.run();
+        }
+    }
+
     public void removeSatellite(Satellite satellite) {
         launchSimulationEngine.abortLaunchForSatellite(satellite);
         transferSimulationController.clearSatelliteState(satellite);

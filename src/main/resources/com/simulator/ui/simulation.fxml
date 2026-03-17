@@ -121,13 +121,17 @@
                            -fx-font-size: 12px; -fx-cursor: hand;
                            -fx-background-radius: 4;"/>
 
-            <Button text="🚀  Launch Satellite"
+            <Button text="🚀  Launch Rocket"
                     fx:id="launchSatelliteButton"
                     onAction="#handleLaunchSatellite"
                     maxWidth="Infinity"
                     style="-fx-background-color: #9a3dd6; -fx-text-fill: white;
                            -fx-font-size: 12px; -fx-cursor: hand;
                            -fx-background-radius: 4;"/>
+
+            <Label text="Launches a new rocket with target orbit taken from the Orbit Type selector above. Satellite is automatically added to the list after deployment."
+                   wrapText="true"
+                   style="-fx-text-fill: #7788aa; -fx-font-size: 10px;"/>
 
             <Button text="🛑  Cancel Launch"
                     fx:id="cancelLaunchButton"
@@ -254,8 +258,8 @@
 
             <Separator style="-fx-background-color: #334466;"/>
 
-            <Label text="🚀  Launch Telemetry"
-                   style="-fx-text-fill: #66cc88; -fx-font-weight: bold;
+            <Label text="🚀  Rocket Launch Telemetry"
+                   style="-fx-text-fill: #cc88ff; -fx-font-weight: bold;
                           -fx-font-size: 11px;"/>
 
             <Label fx:id="launchStatusLabel"

@@ -177,6 +177,19 @@ public class SimulationController implements Initializable {
         );
         engine.getLaunchSimulationEngine().setOnTelemetry(launchController::showTelemetry);
 
+        // When the rocket deploys its satellite, add it to the simulation automatically.
+        engine.getLaunchSimulationEngine().setOnDeploy(deployedSatellite -> {
+            engine.addDeployedSatellite(deployedSatellite);
+            satelliteItems.setAll(engine.getSatellites());
+            satelliteListView.getSelectionModel().select(deployedSatellite);
+            syncControlsFromSelection(deployedSatellite);
+            refreshLaunchActionButtons();
+            refreshTransferActionButtons();
+            refreshActionStatusMessage();
+            refreshTelemetry();
+            renderFrame();
+        });
+
         configureSatelliteList();
         configureOrbitSelector();
         configureTransferSelectors();
@@ -258,31 +271,37 @@ public class SimulationController implements Initializable {
 
     @FXML
     private void handleLaunchSatellite() {
-        Satellite selected = engine.getSelectedSatellite();
-        if (selected == null) {
-            return;
-        }
-        boolean launched = launchController.launchSelectedSatellite(selected);
-        if (launched && !engine.isRunning()) {
+        // Build a new satellite from current slider settings — it is NOT in orbit yet.
+        Orbit.OrbitType preset = orbitTypeComboBox.getValue() == null ? Orbit.OrbitType.LEO : orbitTypeComboBox.getValue();
+        double altKm = Double.isFinite(preset.getDefaultAltitudeKm())
+                ? preset.getDefaultAltitudeKm()
+                : altitudeSlider.getValue();
+        Orbit launchOrbit = new Orbit(
+                preset,
+                altKm,
+                0.0,
+                inclinationSlider.getValue()
+        );
+        String name = "Rocket-" + (satelliteItems.size() + 1);
+        Satellite launched = launchController.launchNewSatellite(name, massSlider.getValue(), launchOrbit);
+        if (launched != null && !engine.isRunning()) {
             engine.startSimulation();
         }
         refreshLaunchActionButtons();
         refreshTransferActionButtons();
+        refreshActionStatusMessage();
     }
 
     @FXML
     private void handleCancelLaunch() {
-        Satellite selected = engine.getSelectedSatellite();
         boolean aborted = engine.getLaunchSimulationEngine().abortLaunch();
-        if (aborted && selected != null) {
-            // Restore the selected satellite to its configured orbital state.
-            engine.setOrbitType(selected, selected.getOrbit().getType());
-            renderer.clearTrailFor(selected.getSatelliteId());
+        if (aborted) {
             renderFrame();
             refreshTelemetry();
         }
         refreshLaunchActionButtons();
         refreshTransferActionButtons();
+        refreshActionStatusMessage();
     }
 
     @FXML
@@ -577,41 +596,41 @@ public class SimulationController implements Initializable {
         Satellite selected = engine.getSelectedSatellite();
         boolean hasSelected = selected != null;
         boolean launchActive = engine.getLaunchSimulationEngine().isActive();
-        boolean hasActiveTransfer = hasSelected && engine.getActiveTransfer(selected) != null;
 
         removeSatelliteButton.setDisable(!hasSelected);
-        launchSatelliteButton.setDisable(!hasSelected || launchActive || hasActiveTransfer);
+        // Launch Rocket is always available unless another launch is already running.
+        launchSatelliteButton.setDisable(launchActive);
         cancelLaunchButton.setDisable(!launchActive);
     }
 
     private void refreshActionStatusMessage() {
-        Satellite selected = engine.getSelectedSatellite();
-        if (selected == null) {
-            actionStatusLabel.setText("State: Select a satellite to enable actions.");
-            return;
-        }
-
         boolean launchActive = engine.getLaunchSimulationEngine().isActive();
-        boolean hasActiveTransfer = engine.getActiveTransfer(selected) != null;
+        Satellite selected = engine.getSelectedSatellite();
+        boolean hasActiveTransfer = selected != null && engine.getActiveTransfer(selected) != null;
 
         if (launchActive) {
-            actionStatusLabel.setText("State: Launch in progress. Transfer is blocked.");
+            actionStatusLabel.setText("State: Rocket ascending — Transfer blocked until deployed.");
             return;
         }
 
         if (hasActiveTransfer) {
-            actionStatusLabel.setText("State: Transfer in progress. Launch is blocked.");
+            actionStatusLabel.setText("State: Hohmann transfer in progress.");
+            return;
+        }
+
+        if (selected == null) {
+            actionStatusLabel.setText("State: Ready. Launch a rocket or add a satellite directly.");
             return;
         }
 
         Orbit.OrbitType current = transferCurrentOrbitComboBox.getValue();
         Orbit.OrbitType target = transferTargetOrbitComboBox.getValue();
         if (current == null || target == null || current == target) {
-            actionStatusLabel.setText("State: Select two distinct transfer orbits.");
+            actionStatusLabel.setText("State: Select two distinct orbits to enable Hohmann transfer.");
             return;
         }
 
-        actionStatusLabel.setText("State: Ready. Launch and transfer actions are available.");
+        actionStatusLabel.setText("State: Ready. Launch rocket or execute Hohmann transfer.");
     }
 
     private void renderFrame() {
